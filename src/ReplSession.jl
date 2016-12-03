@@ -27,7 +27,7 @@ use other session file:
 
 save( \"try1\") # will save in repl.session.try1.jl
 
-sessions() # ask for all sessions files
+session_files() # ask for all sessions files
 
 recall(\"repl.session.try1.jl\")
 
@@ -38,21 +38,35 @@ incl(\"repl.session.try1.jl\", \"MOD1\") # wrap included file in 'module MOD1 ..
 """
 module ReplSession
 
+
 "Returns current session file name"
 function session_name( suffix="")::AbstractString
- re = filter( [s"repl\.session",suffix]) do _ !isempty(_) end |> _->join( push!(_,"jl"), s"\.") |> Regex
- rv = filter( readdir()) do name
-        ismatch( re, name)
-      end |> 
-        ( _->isempty(_)? "repl.session.jl": _|>first )
- !isfile(rv) && touch(rv)
- rv
+ re = join( filter( noempty, [ s"repl\.session", suffix, "jl"]), s"\.") |> Regex
+ found_files = session_files( re)
+ name = isempty( found_files)? "repl.session.jl": first( found_files)
+ !isfile(name) && touch(name)
+ name
 end
+
+"return true if x is not empty"
+noempty(x)=!isempty(x)
+
+
+"returns list of sessions files in current dir matched for regex"
+function session_files( regex=r"repl\.session" )::Vector{String}
+ filter(readdir()) do name
+    ismatch( regex, name)
+ end
+end
+export session_files
+
 
 print_with_color( :magenta, STDERR, """ReplSession: use \"? ReplSession\" for help.\n""")
 
+
 "Returns julia history file name"
 history_name()::AbstractString = homedir()*"/.julia_history"
+
 
 function last_lines( f::AbstractString=history_name(), n::Int=1)::Array 
  ll = []
@@ -62,7 +76,7 @@ function last_lines( f::AbstractString=history_name(), n::Int=1)::Array
         push!(ll, join(cmd,""))
         cmd=[]
         continue
-    end    
+    end
     ismatch( r"\# mode\:\s", l) && continue
     push!( cmd, replace( l, r"\t", ""))
  end
@@ -72,13 +86,11 @@ end
 
 "Saves last n[=1] REPL line to session_name"
 function save( n::Int=1, suffix::AbstractString="")::Void 
- su = strip(suffix)
- se = session_name()
- s = isempty(su)? se: "$se.$su"
+ s = session_name( strip( suffix))
  h = history_name()::AbstractString
  ll = last_lines( h,n)::Array 
 
- open( s,"a") do wio
+ open( s, "a") do wio
     for l in ll
         println(wio,l) 
     end
@@ -87,6 +99,8 @@ function save( n::Int=1, suffix::AbstractString="")::Void
  recall(s)
 end
 export save
+
+save(suffix::AbstractString) = save( 1, suffix)
 
 "comment all lines in session file"
 function comment( s = session_name()::AbstractString)::Void
@@ -125,12 +139,5 @@ function incl( s::AbstractString, as::AbstractString)
 end
 export incl
 
-"returns list of sessions files in current dir"
-function sessions()
- filter(readdir()) do name
-    ismatch( r"repl\.session", name)
- end
-end
-export sessions
 
 end # module
