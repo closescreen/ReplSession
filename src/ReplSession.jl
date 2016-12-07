@@ -102,6 +102,11 @@ export save
 
 save(suffix::AbstractString) = save( 1, suffix)
 
+import Base.edit
+"edit() without args - run editor on file determined by session_name()"
+edit() = edit(ReplSession.session_name())
+export edit
+
 "comment all lines in session file"
 function comment( s = session_name()::AbstractString)::Void
  ll = readlines(s)
